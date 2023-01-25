@@ -1,0 +1,366 @@
+<html>
+
+<head>
+    <title>Line graph</title>
+    <scrip src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js">
+        </script>
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+        <script src="https://d3js.org/d3-selection-multi.v1.min.js"></script>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+            integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+        <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+
+
+
+        <style>
+            body {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .context {
+                padding-top: 10px;
+                padding-bottom: 10px;
+            }
+
+            .amazon {
+                stroke: #DDAA33;
+                stroke-width: 2.5px;
+                fill: none;
+                clip-path: url(#clip);
+            }
+
+            .apple {
+                stroke: #000000;
+                stroke-width: 2.5px;
+                fill: none;
+                clip-path: url(#clip);
+            }
+
+            .google {
+                stroke: #004488;
+                stroke-width: 2.5px;
+                fill: none;
+                clip-path: url(#clip);
+            }
+
+            .netflix {
+                stroke: #BB5566;
+                stroke-width: 2.5px;
+                fill: none;
+                clip-path: url(#clip);
+            }
+
+
+            input[type="checkbox"], label {
+                cursor: pointer;
+            }
+
+            .zoom {
+                cursor: move;
+                fill: none;
+                pointer-events: all;
+            }
+        </style>
+</head>
+
+<body>
+    <div>
+        <svg width="960" height="500">
+            <svg id="legend" x="60" y="-40"></svg>
+        </svg>
+    </div>
+
+    <div width="50%">
+        <fieldset class="border p-2 border-2 border-dark">
+            <legend class="float-none w-auto">Filters : </legend>
+            <section style="margin-top: -10px;">
+                <input id="apple" onclick="filter()" class="form-check-input" type="checkbox" name="apple"
+                    value="apple" />
+                <label class="form-check-label" for="apple">
+                    Apple
+                </label>
+                <br />
+                <input id="amazon" onclick="filter()" class="form-check-input" type="checkbox" name="amazon"
+                    value="amazon" />
+                <label class="form-check-label" for="amazon">
+                    Amazon
+                </label>
+                <br />
+                <input id="google" onclick="filter()" class="form-check-input" type="checkbox" name="google"
+                    value="google" />
+                <label class="form-check-label" for="google">
+                    Google
+                </label>
+                <br />
+                <input id="netflix" onclick="filter()" class="form-check-input" type="checkbox" name="netflix"
+                    value="netflix" />
+                <label class="form-check-label" for="netflix">
+                    Netflix
+                </label>
+                <br />
+                <!-- <br /> -->
+                <!-- <button class="btn btn-primary" onclick="filter()">Select</button> -->
+            </section>
+        </fieldset>
+    </div>
+</body>
+
+<script>
+
+    const svg = d3.select("svg"),
+        margin = { top: 20, right: 20, bottom: 110, left: 40 },
+        margin2 = { top: 430, right: 20, bottom: 30, left: 40 },
+        width = +svg.attr("width") - margin.left - margin.right,
+        height = +svg.attr("height") - margin.top - margin.bottom,
+        height2 = +svg.attr("height") - margin2.top - margin2.bottom;
+
+    const parseDate = d3.timeParse("%b %Y");
+
+    const x = d3.scaleTime().range([0, width]),
+        x2 = d3.scaleTime().range([0, width]),
+        y = d3.scaleLinear().range([height, 0]),
+        y2 = d3.scaleLinear().range([height2, 0]);
+
+    const xAxis = d3.axisBottom(x),
+        xAxis2 = d3.axisBottom(x2),
+        yAxis = d3.axisLeft(y);
+
+    const brush = d3.brushX()
+        .extent([[0, 0], [width, height2]])
+        .on("brush end", brushed);
+
+    const zoom = d3.zoom()
+        .scaleExtent([1, Infinity])
+        .translateExtent([[0, 0], [width, height]])
+        .extent([[0, 0], [width, height]])
+        .on("zoom", zoomed);
+
+    const amazon = d3.line()
+        .curve(d3.curveMonotoneX)
+        .x(function (d) { return x(d.date); })
+        .y(function (d) { return y(d.price_amazon); });
+
+    const apple = d3.line()
+        .curve(d3.curveMonotoneX)
+        .x(function (d) { return x(d.date); })
+        .y(function (d) { return y(d.price_apple); });
+
+    const netflix = d3.line()
+        .curve(d3.curveMonotoneX)
+        .x(function (d) { return x(d.date); })
+        .y(function (d) { return y(d.price_netflix); });
+
+    const google = d3.line()
+        .curve(d3.curveMonotoneX)
+        .x(function (d) { return x(d.date); })
+        .y(function (d) { return y(d.price_google); });
+
+
+    const amazon_context = d3.line()
+        .curve(d3.curveMonotoneX)
+        .x(function (d) { return x2(d.date); })
+        .y(function (d) { return y2(d.price_amazon); });
+
+    const apple_context = d3.line()
+        .curve(d3.curveMonotoneX)
+        .x(function (d) { return x2(d.date); })
+        .y(function (d) { return y2(d.price_apple); });
+
+    const netflix_context = d3.line()
+        .curve(d3.curveMonotoneX)
+        .x(function (d) { return x2(d.date); })
+        .y(function (d) { return y2(d.price_netflix); });
+
+    const google_context = d3.line()
+        .curve(d3.curveMonotoneX)
+        .x(function (d) { return x2(d.date); })
+        .y(function (d) { return y2(d.price_google); });
+
+    svg.append("defs").append("clipPath")
+        .attr("id", "clip")
+        .append("rect")
+        .attr("width", width)
+        .attr("height", height);
+
+    const focus = svg.append("g")
+        .attr("class", "focus")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+    const context = svg.append("g")
+        .attr("class", "context")
+        .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
+
+
+    const online_url = "https://raw.githubusercontent.com/ilyes14hat/Average_stock_prices_GAAN_Dataset/main/dataset.csv?fbclid=IwAR2rZpfNKEqXVGY-fRx6MePI_uJhH-IzkWmkU1NErvV7grxH7MixU8BbXA4";
+
+
+
+    d3.csv(online_url, type, function (error, data) {
+        if (error) throw error;
+
+        x.domain(d3.extent(data, function (d) { return d.date; }));
+        y.domain([0, d3.max(data, function (d) { return d.price_netflix; })]);
+        x2.domain(x.domain());
+        y2.domain(y.domain());
+
+        focus.append("path")
+            .datum(data)
+            .attr("class", "amazon")
+            .attr("d", amazon);
+
+        focus.append("path")
+            .datum(data)
+            .attr("class", "apple")
+            .attr("d", apple);
+
+        focus.append("path")
+            .datum(data)
+            .attr("class", "google")
+            .attr("d", google);
+
+        focus.append("path")
+            .datum(data)
+            .attr("class", "netflix")
+            .attr("d", netflix);
+
+        focus.append("g")
+            .attr("class", "axis axis--x")
+            .attr("transform", "translate(0," + height + ")")
+            .call(xAxis)
+            // .append("text")
+            // .attr("fill", "black")//set the fill here
+            // .attr("transform", "translate(870, 10)")
+            // .text("Hello World!!!");
+
+        focus.append("g")
+            .attr("class", "axis axis--y")
+            .call(yAxis);
+
+        context.append("path")
+            .datum(data)
+            .attr("class", "amazon")
+            .attr("d", amazon_context);
+
+        context.append("path")
+            .datum(data)
+            .attr("class", "apple")
+            .attr("d", apple_context);
+
+        context.append("path")
+            .datum(data)
+            .attr("class", "google")
+            .attr("d", google_context);
+
+        context.append("path")
+            .datum(data)
+            .attr("class", "netflix")
+            .attr("d", netflix_context);
+
+        context.append("g")
+            .attr("class", "axis axis--x")
+            .attr("transform", "translate(0," + height2 + ")")
+            .call(xAxis2);
+
+        context.append("g")
+            .attr("class", "brush")
+            .call(brush)
+            .call(brush.move, x.range());
+
+        svg.append("rect")
+            .attr("class", "zoom")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+            .call(zoom);
+
+    });
+
+    function brushed() {
+        if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
+        const s = d3.event.selection || x2.range();
+        x.domain(s.map(x2.invert, x2));
+        focus.select(".apple").attr("d", apple);
+        focus.select(".amazon").attr("d", amazon);
+        focus.select(".google").attr("d", google);
+        focus.select(".netflix").attr("d", netflix);
+        focus.select(".axis--x").call(xAxis);
+        svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
+            .scale(width / (s[1] - s[0]))
+            .translate(-s[0], 0));
+    }
+
+    function zoomed() {
+        if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
+        const t = d3.event.transform;
+        x.domain(t.rescaleX(x2).domain());
+        focus.select(".apple").attr("d", apple);
+        focus.select(".amazon").attr("d", amazon);
+        focus.select(".google").attr("d", google);
+        focus.select(".netflix").attr("d", netflix);
+        focus.select(".axis--x").call(xAxis);
+        context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+    }
+
+
+    function type(d) {
+        d.date = parseDate(d.date);
+        d.price_google = +d.price_google;
+        d.price_amazon = +d.price_amazon;
+        d.price_apple = +d.price_apple;
+        d.price_netflix = +d.price_netflix;
+        return d;
+    }
+
+    function filter() {
+
+        const appleCheckboxSelected = d3.select("#apple").property("checked");
+        const amazonCheckboxSelected = d3.select("#amazon").property("checked");
+        const googleCheckboxSelected = d3.select("#google").property("checked");
+        const netflixCheckboxSelected = d3.select("#netflix").property("checked");
+
+        appleCheckboxSelected ? d3.selectAll('.apple').style('opacity', '100%') : d3.selectAll('.apple').style('opacity', '10%');
+        amazonCheckboxSelected ? d3.selectAll('.amazon').style('opacity', '100%') : d3.selectAll('.amazon').style('opacity', '10%');
+        googleCheckboxSelected ? d3.selectAll('.google').style('opacity', '100%') : d3.selectAll('.google').style('opacity', '10%');
+        netflixCheckboxSelected ? d3.selectAll('.netflix').style('opacity', '100%') : d3.selectAll('.netflix').style('opacity', '10%');
+
+        if (!appleCheckboxSelected && !amazonCheckboxSelected && !googleCheckboxSelected && !netflixCheckboxSelected) {
+            d3.selectAll('.apple').style('opacity', '100%')
+            d3.selectAll('.amazon').style('opacity', '100%')
+            d3.selectAll('.google').style('opacity', '100%')
+            d3.selectAll('.netflix').style('opacity', '100%')
+        }
+    }
+
+    // Adding the legend
+    const keys = ["Apple", "Amazon", "Google", "Netflix"]
+    const colors = ["#000000", "#DDAA33", "#004488", "#BB5566"]
+    const legend = d3.select("#legend")
+
+    legend.selectAll("mydots")
+        .data(keys)
+        .enter()
+        .append("circle")
+        .attr("cx", 10)
+        .attr("cy", function (d, i) { return 100 + i * 25 }) // 100 is where the first dot appears. 25 is the distance between dots
+        .attr("r", 7)
+        .style("fill", function (_, i) { return colors[i] })
+
+    // Add one dot in the legend for each name.
+    legend.selectAll("mylabels")
+        .data(keys)
+        .enter()
+        .append("text")
+        .attr("x", 30)
+        .attr("y", function (d, i) { return 100 + i * 25 }) // 100 is where the first dot appears. 25 is the distance between dots
+        .style("fill", function (_, i) { return colors[i] })
+        .text(function (d) { return d })
+        .attr("text-anchor", "left")
+        .style("alignment-baseline", "middle")
+
+
+</script>
+
+</html>
